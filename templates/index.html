@@ -1,0 +1,44 @@
+<html>
+
+<head>
+    <title>TP-python et geolocation</title>
+</head>
+
+<body>
+    <div style="margin-top: 10px; width: 100%;">
+        <p>
+           Pour continuer vous devez être géolocalisée.  
+        </p>
+    </div>
+    <div style="margin-top: 10px; width: 100%;">
+        <button id="locateBtn" style="display: block; margin: 10px auto;">
+            Se localiser
+        </button>
+    </div>
+
+    <script>
+        const runQueryButton = document.getElementById("runQuery");
+
+        const locationButton = document.getElementById("locateBtn");
+        locationButton.addEventListener("click", () => {
+            // Try HTML5 geolocation.
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        let currentLat = position.coords.latitude
+                        let currentLon = position.coords.longitude
+                        window.location.href = `/locate-items/${currentLon}/${currentLat}`; 
+                    },
+                    () => {
+                        alert("Could not get location. Check permissions")
+                    },
+                );
+            } else {
+                // Browser doesn't support Geolocation
+                alert("Could not get location. Check if supported")
+            }
+        });
+    </script>
+</body>
+
+</html>
