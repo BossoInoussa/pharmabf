@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PharmaBF — Pharmacies du Burkina Faso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --orange-deep:  #C85A00;
+      --orange:       #E8780A;
+      --orange-light: #F7A74B;
+      --orange-pale:  #FFF3E8;
+      --green-deep:   #1A6B3C;
+      --green:        #27AE60;
+      --green-light:  #5DC687;
+      --green-pale:   #EDFAF3;
+      --cream:        #FDF6EE;
+      --text-dark:    #1C1007;
+      --text-mid:     #5C4325;
+      --text-light:   #A07850;
+      --shadow:       rgba(200,90,0,.18);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Nunito', sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(circle at 15% 85%, rgba(232,120,10,.08) 0%, transparent 50%), radial-gradient(circle at 85% 15%, rgba(39,174,96,.07) 0%, transparent 50%); pointer-events: none; z-index: 0; }
+
+    /* Hero */
+    .hero { position: relative; z-index: 1; background: linear-gradient(135deg, var(--orange-deep) 0%, var(--orange) 55%, var(--green-deep) 100%); padding: 3rem 2rem 5rem; text-align: center; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%; background: rgba(255,255,255,.05); top: -200px; right: -150px; }
+    .hero::after  { content: ''; position: absolute; width: 300px; height: 300px; border-radius: 50%; background: rgba(255,255,255,.04); bottom: -100px; left: -80px; }
+
+    .hero-icon-wrap {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+      animation: pulse 3s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+
+    .hero h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(2rem,6vw,3.5rem); color: #fff; letter-spacing: -.02em; margin: 0 0 .75rem; text-shadow: 0 2px 20px rgba(0,0,0,.25); }
+    .hero h1 span { color: var(--orange-light); }
+    .hero p { color: rgba(255,255,255,.88); font-size: clamp(1rem,2.5vw,1.2rem); font-weight: 500; max-width: 520px; margin: 0 auto 2.5rem; line-height: 1.65; }
+
+    /* Carte flottante */
+    .card-wrapper { position: relative; z-index: 2; display: flex; justify-content: center; margin-top: -2.5rem; padding: 0 1rem; }
+    .locate-card { background: #fff; border-radius: 24px; padding: 2.5rem 2rem; max-width: 480px; width: 100%; box-shadow: 0 20px 60px var(--shadow), 0 4px 16px rgba(0,0,0,.06); text-align: center; }
+    .locate-card h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.4rem; color: var(--text-dark); margin-bottom: .5rem; display: flex; align-items: center; justify-content: center; gap: .5rem; }
+    .locate-card p { color: var(--text-mid); font-size: .95rem; margin-bottom: 2rem; line-height: 1.6; }
+
+    .btn-locate { display: inline-flex; align-items: center; gap: .65rem; background: linear-gradient(135deg, var(--orange) 0%, var(--orange-deep) 100%); color: #fff; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; border: none; border-radius: 50px; padding: .9rem 2rem; cursor: pointer; transition: transform .2s, box-shadow .2s; box-shadow: 0 6px 24px rgba(200,90,0,.35); width: 100%; justify-content: center; }
+    .btn-locate:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(200,90,0,.45); }
+    .btn-locate:active { transform: translateY(0); }
+    .btn-locate.loading { background: var(--text-light); pointer-events: none; }
+
+    .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .error-msg { margin-top: 1.2rem; padding: .75rem 1rem; background: #FFF0F0; border: 1.5px solid #FFBABA; border-radius: 12px; color: #C0392B; font-size: .9rem; display: none; }
+
+    /* Features */
+    .features { position: relative; z-index: 1; max-width: 900px; margin: 3rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 1.25rem; }
+    .feature-item { background: #fff; border-radius: 18px; padding: 1.5rem; border: 1.5px solid rgba(232,120,10,.12); transition: transform .25s, box-shadow .25s; }
+    .feature-item:hover { transform: translateY(-4px); box-shadow: 0 12px 40px var(--shadow); }
+    .feature-item .fi-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: .75rem; }
+    .feature-item .fi-icon.amber { background: #FAEEDA; }
+    .feature-item .fi-icon.green { background: #EDFAF3; }
+    .feature-item .fi-icon.coral { background: #FAECE7; }
+    .feature-item .fi-icon.blue  { background: #E6F1FB; }
+    .feature-item h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--orange-deep); margin-bottom: .35rem; }
+    .feature-item p  { font-size: .88rem; color: var(--text-mid); line-height: 1.55; }
+
+    /* Bande */
+    .cities-band { position: relative; z-index: 1; background: linear-gradient(90deg, var(--green-deep), var(--green)); color: #fff; text-align: center; padding: 1.5rem; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 1.05rem; letter-spacing: .03em; display: flex; align-items: center; justify-content: center; gap: .75rem; flex-wrap: wrap; }
+    .cities-band .sep { opacity: .5; }
+
+    footer { position: relative; z-index: 1; text-align: center; padding: 2rem 1rem; color: var(--text-light); font-size: .85rem; }
+    footer strong { color: var(--orange-deep); }
+  </style>
+</head>
+<body>
+
+<!-- SVG symbols -->
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <symbol id="ic-cross" viewBox="0 0 20 20">
+      <rect x="8" y="1" width="4" height="18" rx="2"/>
+      <rect x="1" y="8" width="18" height="4" rx="2"/>
+    </symbol>
+    <symbol id="ic-locate" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M10 1v4M10 15v4M1 10h4M15 10h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-check-circle" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M6 10l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="ic-moon" viewBox="0 0 20 20">
+      <path d="M15 13A7 7 0 0 1 7 5a7 7 0 1 0 8 8z"/>
+    </symbol>
+    <symbol id="ic-ruler" viewBox="0 0 20 20">
+      <rect x="1" y="7" width="18" height="6" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+      <path d="M5 7v2.5M9 7v4M13 7v2.5M17 7v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-map" viewBox="0 0 20 20">
+      <path d="M1 4l6 2 6-2 6 2v12l-6-2-6 2-6-2z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/>
+      <path d="M7 6v12M13 4v12" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-pin" viewBox="0 0 20 20">
+      <path d="M10 1C7.2 1 5 3.2 5 6c0 4.5 5 13 5 13s5-8.5 5-13c0-2.8-2.2-5-5-5z"/>
+      <circle cx="10" cy="6" r="2.2" fill="white"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-icon-wrap">
+    <svg width="36" height="36" viewBox="0 0 20 20" fill="white"><use href="#ic-cross"/></svg>
+  </div>
+  <h1>Pharma<span>BF</span></h1>
+  <p>Trouvez la pharmacie ouverte la plus proche de vous — de garde ou en horaire normal — à Ouagadougou, Bobo-Dioulasso et partout au Burkina Faso.</p>
+</div>
+
+<!-- Carte localisation -->
+<div class="card-wrapper">
+  <div class="locate-card">
+    <h2>
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="var(--orange-deep)"><use href="#ic-pin"/></svg>
+      Où êtes-vous ?
+    </h2>
+    <p>Autorisez l'accès à votre position pour trouver instantanément la pharmacie ouverte la plus proche.</p>
+
+    <button class="btn-locate" id="locateBtn">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="white"><use href="#ic-locate"/></svg>
+      <span id="btnText">Me localiser maintenant</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+
+    <div class="error-msg" id="errorMsg">
+      Impossible d'obtenir votre position. Vérifiez que la géolocalisation est activée dans votre navigateur.
+    </div>
+  </div>
+</div>
+
+<!-- Features -->
+<div class="features">
+  <div class="feature-item">
+    <div class="fi-icon green">
+      <svg width="24" height="24" viewBox="0 0 20 20" fill="#27AE60"><use href="#ic-check-circle"/></svg>
+    </div>
+    <h3>Ouvert maintenant</h3>
+    <p>Voyez en un coup d'œil quelles pharmacies sont actuellement ouvertes près de vous.</p>
+  </div>
+  <div class="feature-item">
+    <div class="fi-icon amber">
+      <svg width="24" height="24" viewBox="0 0 20 20" fill="#C85A00"><use href="#ic-moon"/></svg>
+    </div>
+    <h3>Pharmacie de garde</h3>
+    <p>Le groupe de garde est calculé automatiquement — 4 groupes tournants, semaine du samedi 12h.</p>
+  </div>
+  <div class="feature-item">
+    <div class="fi-icon coral">
+      <svg width="24" height="24" viewBox="0 0 20 20" stroke="#C85A00" fill="none"><use href="#ic-ruler"/></svg>
+    </div>
+    <h3>Distance réelle</h3>
+    <p>Résultats triés par distance depuis votre position, avec adresse et téléphone.</p>
+  </div>
+  <div class="feature-item">
+    <div class="fi-icon blue">
+      <svg width="24" height="24" viewBox="0 0 20 20" stroke="#185FA5" fill="none"><use href="#ic-map"/></svg>
+    </div>
+    <h3>Carte interactive</h3>
+    <p>Visualisez toutes les pharmacies sur OpenStreetMap avec des icônes colorées par statut.</p>
+  </div>
+</div>
+
+<!-- Bande villes -->
+<div class="cities-band">
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="white"><use href="#ic-pin"/></svg>
+  Ouagadougou
+  <span class="sep">•</span>
+  Bobo-Dioulasso
+  <span class="sep">•</span>
+  233 pharmacies référencées
+</div>
+
+<!-- Footer -->
+<footer>
+  <p>Sources : <strong>Google Maps</strong> · <strong>OpenStreetMap</strong> · <strong>ANAC BF</strong> · <strong>Orange BF</strong></p>
+  <p style="margin-top:.5rem;">Données mises à jour le 10 mars 2026</p>
+</footer>
+
+<script>
+  const btn     = document.getElementById('locateBtn');
+  const btnText = document.getElementById('btnText');
+  const spinner = document.getElementById('spinner');
+  const errMsg  = document.getElementById('errorMsg');
+
+  btn.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      errMsg.style.display = 'block';
+      errMsg.textContent   = 'La géolocalisation n\'est pas supportée par ce navigateur.';
+      return;
+    }
+    btn.classList.add('loading');
+    btnText.textContent   = 'Localisation en cours…';
+    spinner.style.display = 'block';
+    errMsg.style.display  = 'none';
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { window.location.href = `/locate-items/${pos.coords.longitude}/${pos.coords.latitude}`; },
+      ()    => {
+        btn.classList.remove('loading');
+        btnText.textContent   = 'Me localiser maintenant';
+        spinner.style.display = 'none';
+        errMsg.style.display  = 'block';
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PharmaBF — Résultats</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js" crossorigin=""></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Variables ─────────────────────────────────────────── */
+    :root {
+      --or:     #C85A00;
+      --or-l:   #E8780A;
+      --or-p:   #FFF3E8;
+      --or-b:   #F7A74B;
+      --gn:     #1A6B3C;
+      --gn-l:   #27AE60;
+      --gn-p:   #EDFAF3;
+      --gy:     #888;
+      --gy-p:   #F5F5F5;
+      --cream:  #FDF6EE;
+      --dark:   #1C1007;
+      --mid:    #5C4325;
+      --lt:     #A07850;
+      --bd:     rgba(200,90,0,.13);
+      --rad:    12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Nunito', sans-serif; background: var(--cream); color: var(--dark); overflow: hidden; }
+
+    /* ── Mise en page générale ─────────────────────────────── */
+    .layout { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+
+    /* ── Topbar ────────────────────────────────────────────── */
+    .topbar {
+      background: linear-gradient(135deg, var(--or) 0%, var(--or-l) 58%, var(--gn) 100%);
+      display: flex; align-items: center; padding: 0 1rem; gap: .75rem;
+      box-shadow: 0 3px 16px rgba(0,0,0,.22); z-index: 1000;
+    }
+    .tb-brand { font-family:'Syne',sans-serif; font-weight:800; font-size:1.3rem; color:#fff; letter-spacing:-.02em; display:flex; align-items:center; gap:.4rem; white-space:nowrap; }
+    .tb-brand em { color:var(--or-b); font-style:normal; }
+
+    /* Barre de recherche topbar */
+    .tb-search { flex:1; max-width:340px; position:relative; }
+    .tb-search input {
+      width:100%; padding:.45rem .75rem .45rem 2.2rem; border-radius:50px;
+      border:none; background:rgba(255,255,255,.22); color:#fff;
+      font-family:'Nunito',sans-serif; font-size:.88rem; font-weight:500;
+      outline:none; transition:background .2s;
+    }
+    .tb-search input::placeholder { color:rgba(255,255,255,.7); }
+    .tb-search input:focus { background:rgba(255,255,255,.32); }
+    .tb-search .srch-ico { position:absolute; left:.6rem; top:50%; transform:translateY(-50%); pointer-events:none; }
+
+    /* Pills stats */
+    .tb-pills { display:flex; gap:.4rem; margin-left:auto; }
+    .tb-pill { display:flex; align-items:center; gap:.3rem; font-size:.75rem; font-weight:600; color:#fff; background:rgba(255,255,255,.16); border-radius:50px; padding:.2rem .65rem; white-space:nowrap; }
+    .tb-pill.g { background:rgba(255,200,50,.22); }
+    .tb-pill.v { background:rgba(93,198,135,.22); }
+
+    .tb-back { background:rgba(255,255,255,.18); border:none; color:#fff; border-radius:50px; padding:.3rem .85rem; font-family:'Nunito',sans-serif; font-weight:700; font-size:.82rem; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:.3rem; transition:background .2s; white-space:nowrap; }
+    .tb-back:hover { background:rgba(255,255,255,.3); }
+
+    /* ── Corps principal ───────────────────────────────────── */
+    .body { display:grid; grid-template-columns:340px 1fr; overflow:hidden; }
+    @media (max-width:700px) { .body { grid-template-columns:1fr; grid-template-rows:50% 50%; } }
+
+    /* ── Panneau gauche (tabs: liste | itinéraire) ─────────── */
+    .panel { background:#fff; border-right:1.5px solid var(--bd); display:flex; flex-direction:column; overflow:hidden; }
+
+    /* Tabs */
+    .panel-tabs { display:flex; border-bottom:1.5px solid var(--bd); flex-shrink:0; }
+    .p-tab { flex:1; padding:.6rem .5rem; font-family:'Syne',sans-serif; font-weight:700; font-size:.8rem; text-align:center; cursor:pointer; color:var(--mid); border:none; background:transparent; border-bottom:3px solid transparent; margin-bottom:-1.5px; display:flex; align-items:center; justify-content:center; gap:.35rem; transition:color .2s, border-color .2s; }
+    .p-tab.on { color:var(--or); border-bottom-color:var(--or); }
+
+    /* Recherche dans le panneau */
+    .panel-search { padding:.65rem .75rem; border-bottom:1.5px solid var(--bd); flex-shrink:0; position:relative; }
+    .panel-search input { width:100%; padding:.45rem .75rem .45rem 2.1rem; border-radius:50px; border:1.5px solid var(--bd); background:var(--cream); font-family:'Nunito',sans-serif; font-size:.82rem; color:var(--dark); outline:none; transition:border-color .2s; }
+    .panel-search input:focus { border-color:var(--or-l); }
+    .panel-search .srch-ico { position:absolute; left:1.25rem; top:50%; transform:translateY(-50%); pointer-events:none; }
+
+    /* Filtres */
+    .filter-row { padding:.5rem .75rem; border-bottom:1.5px solid var(--bd); display:flex; gap:.35rem; flex-wrap:wrap; flex-shrink:0; }
+    .f-btn { border:1.5px solid var(--bd); background:transparent; border-radius:50px; padding:.2rem .65rem; font-family:'Nunito',sans-serif; font-weight:600; font-size:.75rem; cursor:pointer; color:var(--mid); display:inline-flex; align-items:center; gap:.3rem; transition:all .18s; }
+    .f-btn.on { background:var(--or); border-color:var(--or); color:#fff; }
+    .f-btn:hover:not(.on) { border-color:var(--or); color:var(--or); }
+
+    /* Liste */
+    .card-scroll { overflow-y:auto; flex:1; padding:.5rem; }
+    .ph-card { background:var(--cream); border-radius:var(--rad); padding:.8rem .9rem; margin-bottom:.5rem; border:1.5px solid var(--bd); cursor:pointer; position:relative; overflow:hidden; transition:transform .18s, box-shadow .18s, border-color .18s; }
+    .ph-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:4px 0 0 4px; }
+    .ph-card.garde::before  { background:var(--or); }
+    .ph-card.open::before   { background:var(--gn-l); }
+    .ph-card.closed::before { background:#ccc; }
+    .ph-card:hover { transform:translateX(3px); box-shadow:0 5px 20px rgba(200,90,0,.11); border-color:var(--or-b); }
+    .ph-card.hl { border-color:var(--or); background:var(--or-p); box-shadow:0 5px 20px rgba(200,90,0,.16); }
+    .ct { display:flex; justify-content:space-between; align-items:flex-start; gap:.4rem; margin-bottom:.35rem; }
+    .cn { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; color:var(--dark); line-height:1.3; }
+    .cd { font-family:'Syne',sans-serif; font-weight:700; font-size:.82rem; color:var(--or); background:var(--or-p); border-radius:50px; padding:.12rem .5rem; white-space:nowrap; }
+    .badge { display:inline-flex; align-items:center; gap:.22rem; font-size:.7rem; font-weight:700; border-radius:50px; padding:.12rem .5rem; margin-right:.25rem; }
+    .bg-g  { background:var(--or-p); color:var(--or); }
+    .bg-v  { background:var(--gn-p); color:var(--gn); }
+    .bg-c  { background:var(--gy-p); color:var(--gy); }
+    .ca { font-size:.78rem; color:var(--mid); margin-top:.25rem; display:flex; align-items:flex-start; gap:.3rem; line-height:1.4; }
+    .cp { font-size:.76rem; color:var(--gn); font-weight:600; margin-top:.2rem; display:flex; align-items:center; gap:.3rem; }
+
+    /* Bouton itinéraire sur carte */
+    .btn-route { width:100%; margin-top:.5rem; padding:.4rem; border-radius:8px; border:1.5px solid var(--or); background:transparent; color:var(--or); font-family:'Nunito',sans-serif; font-weight:700; font-size:.76rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.3rem; transition:all .18s; }
+    .btn-route:hover { background:var(--or); color:#fff; }
+
+    /* ── Onglet Itinéraire ──────────────────────────────────── */
+    .route-panel { flex:1; overflow-y:auto; padding:.75rem; display:flex; flex-direction:column; gap:.65rem; }
+
+    .route-no-sel { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2rem 1rem; color:var(--lt); gap:.75rem; }
+    .route-no-sel p { font-size:.85rem; line-height:1.6; }
+
+    .route-header { background:var(--or-p); border-radius:var(--rad); padding:.85rem 1rem; border:1.5px solid rgba(200,90,0,.2); }
+    .route-header h3 { font-family:'Syne',sans-serif; font-weight:800; font-size:.95rem; color:var(--or); margin-bottom:.4rem; }
+    .route-meta { display:flex; gap:.65rem; flex-wrap:wrap; }
+    .route-meta-item { display:flex; align-items:center; gap:.3rem; font-size:.8rem; font-weight:600; color:var(--mid); }
+
+    .btn-clear-route { width:100%; padding:.45rem; border-radius:8px; border:1.5px solid var(--bd); background:transparent; color:var(--mid); font-family:'Nunito',sans-serif; font-weight:600; font-size:.76rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.3rem; transition:all .18s; }
+    .btn-clear-route:hover { border-color:#C0392B; color:#C0392B; }
+
+    .route-steps h4 { font-family:'Syne',sans-serif; font-weight:700; font-size:.8rem; color:var(--mid); margin-bottom:.4rem; text-transform:uppercase; letter-spacing:.04em; }
+    .step-item { display:flex; align-items:flex-start; gap:.6rem; padding:.5rem .6rem; border-radius:8px; background:var(--cream); margin-bottom:.35rem; border:1px solid var(--bd); }
+    .step-num { width:22px; height:22px; border-radius:50%; background:var(--or); color:#fff; font-size:.7rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .step-text { font-size:.78rem; color:var(--dark); line-height:1.45; }
+    .step-dist { font-size:.72rem; color:var(--lt); margin-top:.15rem; }
+
+    /* ── Zoom controls custom ──────────────────────────────── */
+    .leaflet-control-zoom a { font-family:'Syne',sans-serif; font-weight:700; color:var(--or) !important; }
+
+    /* ── Bouton "Centrer sur moi" sur la carte ─────────────── */
+    .map-controls { position:absolute; bottom:80px; right:10px; z-index:500; display:flex; flex-direction:column; gap:6px; }
+    .map-ctrl-btn { width:36px; height:36px; border-radius:50%; background:#fff; border:1.5px solid var(--bd); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.15); transition:box-shadow .18s, transform .18s; }
+    .map-ctrl-btn:hover { box-shadow:0 4px 16px rgba(200,90,0,.25); transform:scale(1.08); }
+
+    /* ── Popup custom ──────────────────────────────────────── */
+    .leaflet-div-icon { background:none; border:none; }
+    .popup-box { font-family:'Nunito',sans-serif; font-size:.85rem; min-width:210px; }
+    .popup-name { font-family:'Syne',sans-serif; font-weight:700; font-size:.95rem; color:#1C1007; margin-bottom:.35rem; }
+    .popup-status { display:flex; align-items:center; gap:.3rem; font-weight:700; margin-bottom:.2rem; }
+    .popup-status.g { color:var(--or); }
+    .popup-status.v { color:var(--gn); }
+    .popup-status.c { color:#C0392B; }
+    .popup-row { font-size:.78rem; color:#5C4325; margin:.18rem 0; display:flex; align-items:flex-start; gap:.3rem; }
+    .popup-dist { font-size:.78rem; color:var(--or); font-weight:700; margin-top:.3rem; display:flex; align-items:center; gap:.3rem; }
+    .popup-btn-route { width:100%; margin-top:.5rem; padding:.4rem; border-radius:7px; border:1.5px solid var(--or); background:var(--or); color:#fff; font-family:'Nunito',sans-serif; font-weight:700; font-size:.76rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.3rem; }
+
+    /* Masquer le conteneur de route Leaflet par défaut */
+    .leaflet-routing-container { display:none !important; }
+
+    /* ── Carte ─────────────────────────────────────────────── */
+    #map { height:100%; width:100%; }
+
+    .map-wrap { position:relative; overflow:hidden; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ SVG Symbols ═══════════════════════════════════════════ -->
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <symbol id="i-cross" viewBox="0 0 20 20">
+      <rect x="8" y="1" width="4" height="18" rx="2"/>
+      <rect x="1" y="8" width="18" height="4" rx="2"/>
+    </symbol>
+    <symbol id="i-garde" viewBox="0 0 20 20">
+      <rect x="7.5" y="2" width="4" height="16" rx="2"/>
+      <rect x="2" y="7.5" width="16" height="4" rx="2"/>
+      <circle cx="17" cy="3" r="3.5"/>
+      <path d="M17 1v4M15 3h4" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+    </symbol>
+    <symbol id="i-lock" viewBox="0 0 20 20">
+      <rect x="3" y="9" width="14" height="10" rx="3"/>
+      <path d="M6.5 9V7A3.5 3.5 0 0 1 13.5 7v2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <circle cx="10" cy="14" r="1.5" fill="white"/>
+    </symbol>
+    <symbol id="i-pin" viewBox="0 0 20 20">
+      <path d="M10 1C7.2 1 5 3.2 5 6c0 4.5 5 13 5 13s5-8.5 5-13c0-2.8-2.2-5-5-5z"/>
+      <circle cx="10" cy="6" r="2.2" fill="white"/>
+    </symbol>
+    <symbol id="i-phone" viewBox="0 0 20 20">
+      <path d="M4 2h4l1.5 4-2 2a10 10 0 0 0 4.5 4.5l2-2L18 12v4c0 1.5-5 4-10-1S2.5 3.5 4 2z"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 20 20">
+      <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M13 13l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-route" viewBox="0 0 20 20">
+      <circle cx="4" cy="5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="16" cy="15" r="2.5" fill="currentColor"/>
+      <path d="M4 7.5C4 11 8 11 8 14.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M8 14.5C8 16 11 16 13.5 15" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-locate" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M10 1v3.5M10 15.5v3.5M1 10h3.5M15.5 10h3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-list" viewBox="0 0 20 20">
+      <rect x="7" y="4" width="11" height="2" rx="1"/>
+      <rect x="7" y="9" width="11" height="2" rx="1"/>
+      <rect x="7" y="14" width="11" height="2" rx="1"/>
+      <circle cx="3" cy="5" r="1.5"/><circle cx="3" cy="10" r="1.5"/><circle cx="3" cy="15" r="1.5"/>
+    </symbol>
+    <symbol id="i-nav" viewBox="0 0 20 20">
+      <path d="M2 10L10 2l8 8-6 1-1 6z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-ruler" viewBox="0 0 20 20">
+      <rect x="1" y="7" width="18" height="6" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+      <path d="M5 7v2.5M9 7v4M13 7v2.5M17 7v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 20 20">
+      <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-turn-r" viewBox="0 0 20 20">
+      <path d="M5 15V9a4 4 0 0 1 4-4h6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M12 2l3 3-3 3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-straight" viewBox="0 0 20 20">
+      <path d="M10 16V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M7 7l3-3 3 3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-flag" viewBox="0 0 20 20">
+      <path d="M4 2v16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M4 2l12 4-12 5" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 20 20">
+      <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M9 6v6M6 9h6M14 14l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-zoom-out" viewBox="0 0 20 20">
+      <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M6 9h6M14 14l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="layout">
+
+  <!-- ── Topbar ── -->
+  <div class="topbar">
+    <div class="tb-brand">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="white"><use href="#i-cross"/></svg>
+      Pharma<em>BF</em>
+    </div>
+
+    <div class="tb-search">
+      <svg class="srch-ico" width="14" height="14" viewBox="0 0 20 20" fill="rgba(255,255,255,.75)"><use href="#i-search"/></svg>
+      <input type="text" id="tbSearch" placeholder="Rechercher une pharmacie..." autocomplete="off" />
+    </div>
+
+    <div class="tb-pills">
+      <div class="tb-pill g">
+        <svg width="11" height="11" viewBox="0 0 20 20" fill="white"><use href="#i-garde"/></svg>
+        <span id="nGarde">—</span> garde
+      </div>
+      <div class="tb-pill v">
+        <svg width="11" height="11" viewBox="0 0 20 20" fill="white"><use href="#i-cross"/></svg>
+        <span id="nOpen">—</span> ouv.
+      </div>
+      <div class="tb-pill">
+        <svg width="11" height="11" viewBox="0 0 20 20" fill="rgba(255,255,255,.7)"><use href="#i-lock"/></svg>
+        <span id="nClosed">—</span> ferm.
+      </div>
+    </div>
+
+    <a href="/" class="tb-back">
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="white"><path d="M14 3L6 10l8 7" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Retour
+    </a>
+  </div>
+
+  <!-- ── Corps ── -->
+  <div class="body">
+
+    <!-- Panneau gauche -->
+    <div class="panel">
+
+      <!-- Tabs Liste / Itinéraire -->
+      <div class="panel-tabs">
+        <button class="p-tab on" id="tab-list" onclick="switchTab('list')">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><use href="#i-list"/></svg>
+          Liste
+        </button>
+        <button class="p-tab" id="tab-route" onclick="switchTab('route')">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><use href="#i-nav"/></svg>
+          Itinéraire
+        </button>
+      </div>
+
+      <!-- ── Contenu Liste ── -->
+      <div id="pane-list" style="display:flex;flex-direction:column;overflow:hidden;flex:1">
+
+        <div class="panel-search">
+          <svg class="srch-ico" width="13" height="13" viewBox="0 0 20 20" fill="var(--lt)"><use href="#i-search"/></svg>
+          <input type="text" id="panelSearch" placeholder="Nom, quartier, adresse..." autocomplete="off" />
+        </div>
+
+        <div class="filter-row">
+          <button class="f-btn on" onclick="applyFilter(this,'all')">Toutes</button>
+          <button class="f-btn" onclick="applyFilter(this,'garde')">
+            <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><use href="#i-garde"/></svg>Garde
+          </button>
+          <button class="f-btn" onclick="applyFilter(this,'open')">
+            <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><use href="#i-cross"/></svg>Ouvertes
+          </button>
+          <button class="f-btn" onclick="applyFilter(this,'closed')">
+            <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><use href="#i-lock"/></svg>Fermées
+          </button>
+        </div>
+
+        <div class="card-scroll" id="cardList"></div>
+      </div>
+
+      <!-- ── Contenu Itinéraire ── -->
+      <div id="pane-route" style="display:none;flex:1;overflow:hidden;flex-direction:column">
+        <div class="route-panel" id="routePanel">
+          <div class="route-no-sel" id="routeEmpty">
+            <svg width="48" height="48" viewBox="0 0 20 20" stroke="var(--lt)" fill="none" stroke-width="1.2"><use href="#i-route"/></svg>
+            <p>Sélectionnez une pharmacie dans la liste et cliquez sur <strong>Calculer l'itinéraire</strong> pour voir les directions.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Carte -->
+    <div class="map-wrap">
+      <div id="map"></div>
+
+      <!-- Boutons carte custom -->
+      <div class="map-controls">
+        <div class="map-ctrl-btn" id="btnCenter" title="Centrer sur ma position">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="var(--or)"><use href="#i-locate"/></svg>
+        </div>
+        <div class="map-ctrl-btn" id="btnZoomFit" title="Ajuster la vue">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="var(--or)"><use href="#i-zoom-in"/></svg>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ─── Données Flask ───────────────────────────────────────────── */
+const USER_LAT = Number("{{ latitude }}");
+const USER_LON = Number("{{ longitude }}");
+const ALL_LOCS = {{ locations | tojson }};
+
+/* ─── Stats ───────────────────────────────────────────────────── */
+document.getElementById('nGarde').textContent  = ALL_LOCS.filter(l => l.deGarde).length;
+document.getElementById('nOpen').textContent   = ALL_LOCS.filter(l => l.ouvert && !l.deGarde).length;
+document.getElementById('nClosed').textContent = ALL_LOCS.filter(l => !l.ouvert).length;
+
+/* ─── Helpers ─────────────────────────────────────────────────── */
+const fmtDist = d => d >= 1000 ? (d/1000).toFixed(1)+' km' : d+' m';
+const fmtTime = s => s >= 3600 ? Math.round(s/3600)+'h '+Math.round((s%3600)/60)+'min' : Math.round(s/60)+' min';
+const sc = loc => loc.deGarde ? 'garde' : loc.ouvert ? 'open' : 'closed';
+
+/* ─── SVG inline helpers ──────────────────────────────────────── */
+function svgIcon(id, size, col, fill) {
+  const isFill = fill !== false;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" ${isFill?`fill="${col}"`:`stroke="${col}" fill="none"`}><use href="#${id}"/></svg>`;
+}
+
+/* ─── Marqueur pharmacie SVG ──────────────────────────────────── */
+function mkSVG(loc, big) {
+  const r  = big ? 20 : 16;
+  const sz = r * 2;
+  const bg = loc.deGarde ? '#C85A00' : loc.ouvert ? '#27AE60' : '#888';
+  const iSz  = Math.round(r * 0.88);
+  const iOff = Math.round((sz - iSz) / 2);
+
+  const inner = {
+    garde: `<rect x="7.5" y="2" width="4" height="16" rx="2" fill="white"/><rect x="2" y="7.5" width="16" height="4" rx="2" fill="white"/><circle cx="17" cy="3" r="3.5" fill="white"/><path d="M17 1v4M15 3h4" stroke="${bg}" stroke-width="1.2" stroke-linecap="round" fill="none"/>`,
+    open:   `<rect x="8" y="1" width="4" height="18" rx="2" fill="white"/><rect x="1" y="8" width="18" height="4" rx="2" fill="white"/>`,
+    closed: `<rect x="3" y="9" width="14" height="10" rx="3" fill="white"/><path d="M6.5 9V7A3.5 3.5 0 0 1 13.5 7v2" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="10" cy="14" r="1.5" fill="${bg}"/>`,
+  }[sc(loc)];
+
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="${r}" cy="${r}" r="${r-1}" fill="white" stroke="${bg}" stroke-width="2.5"/>
+    <circle cx="${r}" cy="${r}" r="${Math.round(r*0.68)}" fill="${bg}"/>
+    <svg x="${iOff}" y="${iOff}" width="${iSz}" height="${iSz}" viewBox="0 0 20 20">${inner}</svg>
+  </svg>`;
+}
+
+function mkUserSVG() {
+  return `<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="22" cy="22" r="20" fill="white" stroke="#1A6B3C" stroke-width="3"/>
+    <circle cx="22" cy="22" r="13" fill="#1A6B3C"/>
+    <path d="M22 10C18.7 10 16 12.7 16 16c0 5 6 16 6 16s6-11 6-16c0-3.3-2.7-6-6-6z" fill="white"/>
+    <circle cx="22" cy="15.5" r="2.8" fill="#1A6B3C"/>
+  </svg>`;
+}
+
+/* ─── Popup HTML ──────────────────────────────────────────────── */
+function mkPopup(loc, idx) {
+  const s   = sc(loc);
+  const col = {garde:'#C85A00', open:'#1A6B3C', closed:'#C0392B'}[s];
+  const stTxt = {garde:'De garde — 24h/24', open:'Ouvert', closed:'Fermé'}[s];
+  const stIco = {garde:'i-garde', open:'i-cross', closed:'i-lock'}[s];
+
+  return `<div class="popup-box">
+    <div class="popup-name">${loc.nom}</div>
+    <div class="popup-status ${s}">
+      ${svgIcon(stIco, 13, col)}
+      ${stTxt}
+    </div>
+    <div class="popup-row">
+      ${svgIcon('i-pin', 11, '#A07850')}
+      <span>${loc.adresse || loc.details || ''}</span>
+    </div>
+    ${loc.telephone ? `<div class="popup-row">${svgIcon('i-phone',11,'#1A6B3C')} <a href="tel:${loc.telephone}" style="color:#1A6B3C">${loc.telephone}</a></div>` : ''}
+    <div class="popup-dist">
+      ${svgIcon('i-ruler', 11, '#C85A00', false)}
+      ${fmtDist(loc.distance)} de votre position
+    </div>
+    <button class="popup-btn-route" onclick="startRoute(${idx})">
+      ${svgIcon('i-nav', 13, 'white')}
+      Calculer l'itinéraire
+    </button>
+  </div>`;
+}
+
+/* ─── Carte Leaflet ───────────────────────────────────────────── */
+const map = L.map('map', { zoomControl: false }).setView([USER_LAT, USER_LON], 14);
+
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+// Zoom control en haut à gauche
+L.control.zoom({ position: 'topleft' }).addTo(map);
+
+// Marqueur utilisateur
+const userMarker = L.marker([USER_LAT, USER_LON], {
+  icon: L.divIcon({ html: mkUserSVG(), iconSize:[44,44], iconAnchor:[22,22], popupAnchor:[0,-24], className:'' })
+}).addTo(map).bindPopup('<div class="popup-box"><div class="popup-name">Votre position</div></div>');
+
+/* ─── Construire cartes + marqueurs ───────────────────────────── */
+const markers = [];
+const cards   = [];
+const listEl  = document.getElementById('cardList');
+
+ALL_LOCS.forEach((loc, idx) => {
+  const mkIcon = big => L.divIcon({
+    html: mkSVG(loc, big),
+    iconSize:   big ? [40,40] : [32,32],
+    iconAnchor: big ? [20,20] : [16,16],
+    popupAnchor:[0, big ? -22 : -18],
+    className: ''
+  });
+
+  const marker = L.marker([loc.lat, loc.lon], { icon: mkIcon(false) })
+    .addTo(map)
+    .bindPopup(mkPopup(loc, idx), { maxWidth: 290 });
+
+  marker.on('click', () => highlightCard(idx));
+  markers.push({ m: marker, mkIcon });
+
+  /* Carte dans la liste */
+  const s = sc(loc);
+  const badgeCls  = {garde:'bg-g', open:'bg-v', closed:'bg-c'}[s];
+  const badgeTxt  = {garde:'De garde', open:'Ouvert', closed:'Fermé'}[s];
+  const badgeCol  = {garde:'#C85A00', open:'#27AE60', closed:'#888'}[s];
+  const badgeIco  = {garde:'i-garde', open:'i-cross', closed:'i-lock'}[s];
+
+  const card = document.createElement('div');
+  card.className = `ph-card ${s}`;
+  card.dataset.status = s;
+  card.dataset.name   = loc.nom.toLowerCase();
+  card.dataset.addr   = (loc.adresse || loc.details || '').toLowerCase();
+  card.innerHTML = `
+    <div class="ct">
+      <div class="cn">${loc.nom}</div>
+      <div class="cd">${fmtDist(loc.distance)}</div>
+    </div>
+    <div>
+      <span class="badge ${badgeCls}">${svgIcon(badgeIco,10,badgeCol)} ${badgeTxt}</span>
+      ${loc.groupe ? `<span class="badge bg-c">Gr. ${loc.groupe}</span>` : ''}
+    </div>
+    <div class="ca">${svgIcon('i-pin',10,'#A07850')} <span>${loc.adresse || loc.details || ''}</span></div>
+    ${loc.telephone ? `<div class="cp">${svgIcon('i-phone',10,'#1A6B3C')} ${loc.telephone}</div>` : ''}
+    <button class="btn-route" onclick="event.stopPropagation(); startRoute(${idx})">
+      ${svgIcon('i-nav',12,'currentColor')} Calculer l'itinéraire
+    </button>`;
+
+  card.addEventListener('click', () => {
+    map.setView([loc.lat, loc.lon], 16, { animate: true });
+    markers[idx].m.openPopup();
+    highlightCard(idx);
+  });
+
+  listEl.appendChild(card);
+  cards.push(card);
+});
+
+/* ─── Mise en évidence ────────────────────────────────────────── */
+let lastHl = -1;
+
+function highlightCard(idx) {
+  if (lastHl >= 0) {
+    cards[lastHl].classList.remove('hl');
+    markers[lastHl].m.setIcon(markers[lastHl].mkIcon(false));
+  }
+  cards[idx].classList.add('hl');
+  markers[idx].m.setIcon(markers[idx].mkIcon(true));
+  cards[idx].scrollIntoView({ behavior:'smooth', block:'nearest' });
+  lastHl = idx;
+}
+
+/* ─── Première mise en évidence auto ─────────────────────────── */
+const firstOpen = ALL_LOCS.findIndex(l => l.ouvert);
+if (firstOpen >= 0) setTimeout(() => {
+  highlightCard(firstOpen);
+  markers[firstOpen].m.openPopup();
+}, 700);
+
+/* ─── Filtres + Recherche ─────────────────────────────────────── */
+let curFilter = 'all';
+let curSearch = '';
+
+function applyFilter(btn, filter) {
+  document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  curFilter = filter;
+  updateVisible();
+}
+
+function updateVisible() {
+  const q = curSearch.trim().toLowerCase();
+  cards.forEach((card, idx) => {
+    const matchFilter = curFilter === 'all' || card.dataset.status === curFilter;
+    const matchSearch = !q || card.dataset.name.includes(q) || card.dataset.addr.includes(q);
+    const show = matchFilter && matchSearch;
+    card.style.display = show ? '' : 'none';
+    show ? markers[idx].m.addTo(map) : map.removeLayer(markers[idx].m);
+  });
+}
+
+// Recherche panneau
+document.getElementById('panelSearch').addEventListener('input', e => {
+  curSearch = e.target.value;
+  updateVisible();
+});
+
+// Recherche topbar (synchronisée)
+document.getElementById('tbSearch').addEventListener('input', e => {
+  curSearch = e.target.value;
+  document.getElementById('panelSearch').value = curSearch;
+  updateVisible();
+});
+
+/* ─── Routing avec Leaflet Routing Machine (OSRM) ────────────── */
+let routingControl = null;
+let activeRouteIdx = -1;
+
+function startRoute(idx) {
+  const loc = ALL_LOCS[idx];
+
+  // Supprimer l'ancien itinéraire
+  if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+
+  routingControl = L.Routing.control({
+    waypoints: [
+      L.latLng(USER_LAT, USER_LON),
+      L.latLng(loc.lat, loc.lon)
+    ],
+    router: L.Routing.osrmv1({
+      serviceUrl: 'https://router.project-osrm.org/route/v1',
+      profile: 'driving'
+    }),
+    lineOptions: {
+      styles: [{ color:'#C85A00', weight:5, opacity:.85 }],
+      extendToWaypoints: true,
+      missingRouteTolerance: 0
+    },
+    createMarker: () => null,   // on garde nos propres marqueurs
+    addWaypoints: false,
+    draggableWaypoints: false,
+    fitSelectedRoutes: true,
+    show: false,                // pas de panneau par défaut
+  }).addTo(map);
+
+  activeRouteIdx = idx;
+  switchTab('route');
+  highlightCard(idx);
+
+  // Récupérer infos de l'itinéraire calculé
+  routingControl.on('routesfound', e => {
+    const route   = e.routes[0];
+    const summary = route.summary;
+    const dist    = summary.totalDistance;   // mètres
+    const time    = summary.totalTime;       // secondes
+    buildRoutePanel(loc, dist, time, route.instructions || []);
+  });
+
+  routingControl.on('routingerror', () => {
+    buildRouteFallback(loc);
+  });
+}
+
+function buildRoutePanel(loc, dist, time, instructions) {
+  const panel = document.getElementById('routePanel');
+  const s = sc(loc);
+  const col = {garde:'#C85A00', open:'#1A6B3C', closed:'#888'}[s];
+  const stTxt = {garde:'De garde', open:'Ouvert', closed:'Fermé'}[s];
+
+  let stepsHtml = '';
+  if (instructions.length) {
+    stepsHtml = `<div class="route-steps">
+      <h4>Étapes</h4>`;
+    instructions.forEach((step, i) => {
+      const ico = step.type === 'DestinationReached' ? 'i-flag' :
+                  (step.type && step.type.includes('Right')) ? 'i-turn-r' : 'i-straight';
+      stepsHtml += `<div class="step-item">
+        <div class="step-num">${i+1}</div>
+        <div>
+          <div class="step-text">${step.text || step.instruction || ''}</div>
+          ${step.distance ? `<div class="step-dist">${fmtDist(Math.round(step.distance))}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    stepsHtml += `</div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="route-header">
+      <h3>${loc.nom}</h3>
+      <div class="route-meta">
+        <div class="route-meta-item">
+          ${svgIcon('i-ruler', 14, '#C85A00', false)}
+          <strong>${fmtDist(Math.round(dist))}</strong>
+        </div>
+        <div class="route-meta-item">
+          ${svgIcon('i-clock', 14, '#5C4325', false)}
+          <strong>${fmtTime(time)}</strong>
+        </div>
+        <div class="route-meta-item">
+          <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="${col}"/></svg>
+          <span style="color:${col};font-weight:700">${stTxt}</span>
+        </div>
+      </div>
+    </div>
+
+    ${loc.telephone ? `<div style="background:var(--gn-p);border-radius:var(--rad);padding:.65rem .85rem;border:1.5px solid rgba(26,107,60,.18);display:flex;align-items:center;gap:.5rem;font-size:.82rem;font-weight:600;color:var(--gn)">
+      ${svgIcon('i-phone',14,'#1A6B3C')}
+      <a href="tel:${loc.telephone}" style="color:var(--gn)">${loc.telephone}</a>
+    </div>` : ''}
+
+    ${stepsHtml}
+
+    <button class="btn-clear-route" onclick="clearRoute()">
+      ${svgIcon('i-close', 12, 'currentColor')} Supprimer l'itinéraire
+    </button>`;
+}
+
+function buildRouteFallback(loc) {
+  const panel = document.getElementById('routePanel');
+  const dist  = loc.distance;
+  panel.innerHTML = `
+    <div class="route-header">
+      <h3>${loc.nom}</h3>
+      <div class="route-meta">
+        <div class="route-meta-item">${svgIcon('i-ruler',14,'#C85A00',false)} ${fmtDist(dist)} à vol d'oiseau</div>
+      </div>
+    </div>
+    <div style="padding:.75rem;background:var(--or-p);border-radius:var(--rad);font-size:.82rem;color:var(--mid)">
+      Itinéraire non disponible (connexion OSRM indisponible). La ligne directe est affichée sur la carte.
+    </div>
+    <button class="btn-clear-route" onclick="clearRoute()">
+      ${svgIcon('i-close', 12, 'currentColor')} Supprimer l'itinéraire
+    </button>`;
+}
+
+function clearRoute() {
+  if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+  activeRouteIdx = -1;
+  document.getElementById('routePanel').innerHTML = `
+    <div class="route-no-sel" id="routeEmpty">
+      ${svgIcon('i-route', 48, 'var(--lt)', false)}
+      <p>Sélectionnez une pharmacie dans la liste et cliquez sur <strong>Calculer l'itinéraire</strong> pour voir les directions.</p>
+    </div>`;
+}
+
+/* ─── Onglets ─────────────────────────────────────────────────── */
+function switchTab(tab) {
+  document.getElementById('tab-list').classList.toggle('on',  tab==='list');
+  document.getElementById('tab-route').classList.toggle('on', tab==='route');
+  document.getElementById('pane-list').style.display  = tab==='list'  ? 'flex' : 'none';
+  document.getElementById('pane-route').style.display = tab==='route' ? 'flex' : 'none';
+}
+
+/* ─── Boutons carte custom ────────────────────────────────────── */
+// Centrer sur utilisateur
+document.getElementById('btnCenter').addEventListener('click', () => {
+  map.setView([USER_LAT, USER_LON], 15, { animate: true });
+});
+
+// Ajuster la vue : toutes les pharmacies visibles
+document.getElementById('btnZoomFit').addEventListener('click', () => {
+  const visiblePoints = ALL_LOCS
+    .filter((_, i) => cards[i] && cards[i].style.display !== 'none')
+    .map(l => [l.lat, l.lon]);
+  if (visiblePoints.length) {
+    const bounds = L.latLngBounds([[USER_LAT, USER_LON], ...visiblePoints]);
+    map.fitBounds(bounds, { padding: [40, 40], animate: true });
+  }
+});
+
+/* ─── Zoom sur ma position si un itinéraire est actif ─────────── */
+map.on('locationfound', e => map.setView(e.latlng, 15));
+</script>
+
+</body>
+</html>
