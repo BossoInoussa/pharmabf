@@ -1,5 +1,3 @@
-[build]
-builder = "nixpacks"
-
 [deploy]
-startCommand = "gunicorn app:app --bind 0.0.0.0:$PORT"
+preDeployCommand = "python import_data.py"
+startCommand = "python app.py"
