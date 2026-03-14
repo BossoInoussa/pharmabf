@@ -156,7 +156,12 @@ def api_garde():
     garde_group = get_current_garde_group(now)
     return jsonify({"groupe": garde_group, "timestamp": now.isoformat()})
 
-
+@app.route('/init-db')
+def init_db():
+    from import_data import main
+    main()
+    return "Base de donnees importee"
+    
 # if __name__ == '__main__':
 #    app.run(debug=True)
 
