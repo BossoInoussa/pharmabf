@@ -1,11 +1,13 @@
 from flask import Flask, render_template, request, jsonify
 import math
 import datetime
+import os
 from pymongo import MongoClient
 
 app = Flask(__name__)
 
-MONGO_URI = "mongodb://localhost:27017/"
+# MONGO_URI = "mongodb://localhost:27017/"
+MONGO_URI = os.environ.get("MONGO_URL", "mongodb://localhost:27017/")
 DB_NAME   = "pharmacies_bf"
 _client   = None
 
