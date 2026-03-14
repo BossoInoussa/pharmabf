@@ -8,7 +8,8 @@ from pymongo import MongoClient, GEOSPHERE
 from datetime import datetime
 
 # === CONFIGURATION ===
-MONGO_URI = "mongodb://localhost:27017/"
+import os
+MONGO_URI = os.environ.get("MONGO_URL", "mongodb://localhost:27017/")
 DB_NAME = "pharmacies_bf"
 
 # Date de référence : le samedi 8 mars 2025 à 12h00,
